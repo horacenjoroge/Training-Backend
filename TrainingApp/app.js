@@ -18,9 +18,14 @@ mongoose.connect(process.env.MONGODB_URI)
 
 // API Routes
 const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/user');
+const postRoutes = require('./routes/post');
 
 // Use routes
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/posts', postRoutes);
+
 
 // Error handling middleware
 app.use((err, req, res, next) => {

@@ -1,3 +1,4 @@
+// models/User.js
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
@@ -17,6 +18,24 @@ const userSchema = new Schema({
     type: String,
     required: true,
     minlength: 6
+  },
+  avatar: {
+    type: String,
+    default: ''
+  },
+  stats: {
+    workouts: {
+      type: Number,
+      default: 0
+    },
+    hours: {
+      type: Number,
+      default: 0
+    },
+    calories: {
+      type: Number,
+      default: 0
+    }
   },
   createdAt: {
     type: Date,

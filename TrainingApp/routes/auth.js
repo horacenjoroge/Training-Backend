@@ -14,4 +14,10 @@ router.post('/login', validateLogin, authController.login);
 // Get user profile (protected route)
 router.get('/user', auth, authController.getUser);
 
+// Add refresh token endpoint
+router.post('/refresh', authController.refreshToken);
+
+// Optional: Add logout endpoint
+router.post('/logout', authController.logout);
+
 module.exports = router;

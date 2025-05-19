@@ -1,9 +1,11 @@
-// routes/user.js
+// routes/user.js - With correct controller reference
+
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const userController = require('../controllers/userController');
+const userController = require('../controllers/userController'); // SINGULAR - userController
 
+// Original routes
 // @route   GET api/users/profile
 // @desc    Get current user profile
 // @access  Private
@@ -58,5 +60,23 @@ router.get('/achievements', auth, userController.getUserAchievements);
 // @desc    Add new achievement
 // @access  Private
 router.post('/achievements', auth, userController.addAchievement);
+
+// NEW ROUTES - Add these before the /:userId route
+
+// @route   GET api/users/search
+// @desc    Get all users except current user (for Find Friends)
+// @access  Private
+router.get('/search', auth, userController.searchUsers);
+
+// @route   GET api/users/search/:query
+// @desc    Search users by name, username, or bio
+// @access  Private
+router.get('/search/:query', auth, userController.searchUsersByQuery);
+
+// MUST BE LAST - Generic param route should always be at the end
+// @route   GET api/users/:userId
+// @desc    Get a specific user by ID
+// @access  Public
+router.get('/:userId', userController.getUserById);
 
 module.exports = router;

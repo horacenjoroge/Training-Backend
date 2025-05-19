@@ -4,6 +4,7 @@ const Achievement = require('../models/Achievement');
 const Follower = require('../models/Follower');
 const multer = require('multer');
 const path = require('path');
+const mongoose = require('mongoose'); // This import was at the bottom, moved to top
 
 // Set up multer storage
 const storage = multer.diskStorage({
@@ -349,7 +350,101 @@ exports.addAchievement = async (req, res) => {
     console.error(err.message);
     res.status(500).send('Server Error');
   }
+}; // Fixed closing brace for addAchievement
+
+// Get all users (except current user) for Find Friends screen
+exports.searchUsers = async (req, res) => {
+  try {
+    console.log('Searching for users, current user:', req.user.id);
+    
+    // Find all users except the current user
+    const users = await User.find({ 
+      _id: { $ne: req.user.id } // Exclude current user
+    })
+    .select('name email avatar bio') // Select only necessary fields
+    .limit(20); // Limit results
+    
+    console.log(`Found ${users.length} users`);
+    res.json(users);
+  } catch (error) {
+    console.error('Error searching users:', error);
+    res.status(500).send('Server Error');
+  }
 };
 
-// Don't forget to add this import at the top
-const mongoose = require('mongoose');
+// Search users by query
+exports.searchUsersByQuery = async (req, res) => {
+  try {
+    const searchQuery = req.params.query;
+    
+    if (!searchQuery || searchQuery.length < 2) {
+      return res.status(400).json({ message: 'Search query must be at least 2 characters' });
+    }
+    
+    // Search for users by name or email
+    const users = await User.find({
+      $or: [
+        { name: { $regex: searchQuery, $options: 'i' } },
+        { email: { $regex: searchQuery, $options: 'i' } },
+        { bio: { $regex: searchQuery, $options: 'i' } }
+      ],
+      _id: { $ne: req.user.id } // Exclude current user
+    }).limit(20).select('name email avatar bio');
+    
+    console.log(`Found ${users.length} users matching query: ${searchQuery}`);
+    res.json(users);
+  } catch (error) {
+    console.error('Search users error:', error);
+    res.status(500).send('Server Error');
+  }
+};
+
+// Get a specific user by ID
+exports.getUserById = async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    
+    // Check if userId is a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: 'Invalid user ID format' });
+    }
+
+    // Find the user
+    const user = await User.findById(userId).select('-password');
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Get follower and following counts
+    let followerCount = 0;
+    let followingCount = 0;
+    
+    // Only if Follower model exists
+    if (mongoose.models.Follower) {
+      followerCount = await Follower.countDocuments({ following: userId });
+      followingCount = await Follower.countDocuments({ follower: userId });
+    }
+
+    // Add counts to the user object
+    const userWithCounts = {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      avatar: user.avatar,
+      bio: user.bio || 'Fitness enthusiast',
+      stats: user.stats || {
+        workouts: 0,
+        hours: 0,
+        calories: 0
+      },
+      followers: followerCount,
+      following: followingCount
+    };
+
+    res.json(userWithCounts);
+  } catch (error) {
+    console.error('Get user error:', error);
+    res.status(500).send('Server Error');
+  }
+};

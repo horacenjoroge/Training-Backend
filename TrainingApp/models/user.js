@@ -21,7 +21,7 @@ const userSchema = new Schema({
   },
   avatar: {
     type: String,
-    default: ''
+    default: '/uploads/avatars/default-avatar.jpg' 
   },
   stats: {
     workouts: {

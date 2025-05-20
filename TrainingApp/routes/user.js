@@ -1,9 +1,11 @@
-// routes/user.js - With correct controller reference
+// routes/user.js - With fixed avatar upload route
 
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const userController = require('../controllers/userController'); // SINGULAR - userController
+const userController = require('../controllers/userController');
+const { avatarUpload } = require('../utils/uploadService');  // Import the upload middleware
+const uploadController = require('../controllers/uploadController');
 
 // Original routes
 // @route   GET api/users/profile
@@ -29,7 +31,8 @@ router.get('/fullprofile', auth, userController.getFullProfile);
 // @route   POST api/users/avatar
 // @desc    Upload profile image
 // @access  Private
-router.post('/avatar', auth, userController.upload, userController.uploadProfileImage);
+// UPDATED: use the avatarUpload middleware from uploadService instead
+router.post('/avatar', auth, avatarUpload, uploadController.uploadAvatar);
 
 // @route   GET api/users/followers
 // @desc    Get user's followers

@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 const path = require('path');
+const fs = require('fs');
 
 // Create Express app
 const app = express();
@@ -22,17 +23,22 @@ app.use((req, res, next) => {
   next();
 });
 
-// Set up static folders for uploads
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Create unified uploads directory structure in public folder
+const dirs = [
+  'public', 
+  'public/uploads', 
+  'public/uploads/avatars', 
+  'public/uploads/posts'
+];
 
-// Ensure uploads directory exists
-const fs = require('fs');
-const dirs = ['uploads', 'uploads/avatars'];
 dirs.forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
 });
+
+// Set up static folders for serving uploaded files
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
 // Connect to MongoDB with detailed logging
 mongoose.connect(process.env.MONGODB_URI)
@@ -43,7 +49,7 @@ mongoose.connect(process.env.MONGODB_URI)
   });
 
 // Load routes with error handling
-let authRoutes, userRoutes, postRoutes, achievementRoutes, followRoutes;
+let authRoutes, userRoutes, postRoutes, achievementRoutes, followRoutes, uploadRoutes;
 
 try {
   authRoutes = require('./routes/auth');
@@ -70,6 +76,15 @@ try {
 }
 
 try {
+  // Load the new uploads routes
+  uploadRoutes = require('./routes/uploads');
+  console.log('Upload routes loaded successfully');
+} catch (error) {
+  console.error('Error loading upload routes:', error.message);
+  uploadRoutes = express.Router();
+}
+
+try {
   // Using the original route names as in your code
   achievementRoutes = require('./routes/achievementRoutes');
   console.log('Achievement routes loaded successfully');
@@ -89,13 +104,14 @@ try {
 
 // Health check route
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'API is running', 
+  res.json({
+    status: 'API is running',
     time: new Date().toISOString(),
     routes: {
       auth: '/api/auth',
       users: '/api/users',
       posts: '/api/posts',
+      uploads: '/api/uploads',
       achievements: '/api/achievements',
       follow: '/api/follow'
     }
@@ -106,6 +122,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/posts', postRoutes);
+app.use('/api/uploads', uploadRoutes); // Add the upload routes
 app.use('/api/achievements', achievementRoutes);
 app.use('/api/follow', followRoutes);
 
@@ -119,6 +136,7 @@ app.use((req, res, next) => {
       '/api/auth/...',
       '/api/users/...',
       '/api/posts/...',
+      '/api/uploads/...', // Add uploads to available routes list
       '/api/achievements/...',
       '/api/follow/...'
     ]
@@ -131,8 +149,8 @@ app.use((err, req, res, next) => {
   
   // Handle multer errors
   if (err.code === 'LIMIT_FILE_SIZE') {
-    return res.status(400).json({ 
-      message: 'File too large, maximum size is 5MB' 
+    return res.status(400).json({
+      message: 'File too large, maximum size is 5MB'
     });
   }
   

@@ -1,36 +1,8 @@
 // controllers/userController.js
-const User = require('../models/User');
+const User = require('../models/user');
 const Achievement = require('../models/Achievement');
 const Follower = require('../models/Follower');
-const multer = require('multer');
-const path = require('path');
-const mongoose = require('mongoose'); // This import was at the bottom, moved to top
-
-// Set up multer storage
-const storage = multer.diskStorage({
-  destination: function(req, file, cb) {
-    cb(null, 'uploads/avatars/');
-  },
-  filename: function(req, file, cb) {
-    cb(null, `${req.user.id}-${Date.now()}${path.extname(file.originalname)}`);
-  }
-});
-
-// Upload middleware
-exports.upload = multer({
-  storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-  fileFilter: function(req, file, cb) {
-    const filetypes = /jpeg|jpg|png|gif/;
-    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = filetypes.test(file.mimetype);
-    
-    if (mimetype && extname) {
-      return cb(null, true);
-    }
-    cb(new Error('Only image files are allowed'));
-  }
-}).single('image');
+const mongoose = require('mongoose');
 
 // Get current user's profile with stats
 exports.getUserProfile = async (req, res) => {
@@ -136,10 +108,10 @@ exports.updateUserStats = async (req, res) => {
   }
 };
 
-// Update user profile
+// Update user profile (without avatar handling)
 exports.updateUserProfile = async (req, res) => {
   try {
-    const { name, avatar, bio } = req.body;
+    const { name, bio } = req.body;
     
     const user = await User.findById(req.user.id);
     
@@ -150,10 +122,6 @@ exports.updateUserProfile = async (req, res) => {
     // Update fields if provided
     if (name) {
       user.name = name;
-    }
-    
-    if (avatar) {
-      user.avatar = avatar;
     }
     
     // Update bio if your User model has a bio field
@@ -170,33 +138,6 @@ exports.updateUserProfile = async (req, res) => {
       avatar: user.avatar,
       bio: user.bio,
       stats: user.stats
-    });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
-  }
-};
-
-// Upload profile image
-exports.uploadProfileImage = async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'No file uploaded' });
-    }
-    
-    const user = await User.findById(req.user.id);
-    
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    
-    // Update avatar URL
-    user.avatar = `/uploads/avatars/${req.file.filename}`;
-    await user.save();
-    
-    res.json({
-      message: 'Profile image updated',
-      avatar: user.avatar
     });
   } catch (err) {
     console.error(err.message);
@@ -350,7 +291,7 @@ exports.addAchievement = async (req, res) => {
     console.error(err.message);
     res.status(500).send('Server Error');
   }
-}; // Fixed closing brace for addAchievement
+};
 
 // Get all users (except current user) for Find Friends screen
 exports.searchUsers = async (req, res) => {

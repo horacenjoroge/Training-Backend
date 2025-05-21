@@ -64,10 +64,13 @@ exports.unfollowUser = async (req, res) => {
 // Get followers
 exports.getFollowers = async (req, res) => {
   try {
-    const followers = await Follower.find({ following: req.user.id })
-      .populate('follower', 'name email avatar')
-      .sort({ createdAt: -1 });
+    // Use query param if provided, otherwise use current user's ID
+    const userId = req.query.userId || req.user.id;
     
+    const followers = await Follower.find({ following: userId })
+      .populate('follower', 'name email avatar bio')
+      .sort({ createdAt: -1 });
+        
     res.json(followers.map(f => f.follower));
   } catch (err) {
     console.error(err.message);
@@ -78,10 +81,13 @@ exports.getFollowers = async (req, res) => {
 // Get following
 exports.getFollowing = async (req, res) => {
   try {
-    const following = await Follower.find({ follower: req.user.id })
-      .populate('following', 'name email avatar')
-      .sort({ createdAt: -1 });
+    // Use query param if provided, otherwise use current user's ID
+    const userId = req.query.userId || req.user.id;
     
+    const following = await Follower.find({ follower: userId })
+      .populate('following', 'name email avatar bio')
+      .sort({ createdAt: -1 });
+        
     res.json(following.map(f => f.following));
   } catch (err) {
     console.error(err.message);

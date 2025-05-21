@@ -10,7 +10,9 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: '*', // For development only - restrict in production
+  origin: process.env.NODE_ENV === 'production' 
+    ? 'https://your-frontend-domain.com' // Replace with your React Native app's domain in production
+    : '*', // Allow all origins in development
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'x-auth-token', 'Authorization']
 }));
@@ -40,8 +42,11 @@ dirs.forEach(dir => {
 // Set up static folders for serving uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
-// Connect to MongoDB with detailed logging
-mongoose.connect(process.env.MONGODB_URI)
+// Connect to MongoDB with detailed logging and options
+mongoose.connect(process.env.MONGODB_URI, {
+  serverSelectionTimeoutMS: 5000, // Timeout after 5 seconds
+  socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+})
   .then(() => console.log('Connected to MongoDB at', process.env.MONGODB_URI))
   .catch(err => {
     console.error('MongoDB connection error:', err);
@@ -49,7 +54,7 @@ mongoose.connect(process.env.MONGODB_URI)
   });
 
 // Load routes with error handling
-let authRoutes, userRoutes, postRoutes, achievementRoutes, followRoutes, uploadRoutes;
+let authRoutes, userRoutes, postRoutes, achievementRoutes, followRoutes, uploadRoutes, contactsRoutes;
 
 try {
   authRoutes = require('./routes/auth');
@@ -76,7 +81,6 @@ try {
 }
 
 try {
-  // Load the new uploads routes
   uploadRoutes = require('./routes/uploads');
   console.log('Upload routes loaded successfully');
 } catch (error) {
@@ -85,7 +89,6 @@ try {
 }
 
 try {
-  // Using the original route names as in your code
   achievementRoutes = require('./routes/achievementRoutes');
   console.log('Achievement routes loaded successfully');
 } catch (error) {
@@ -94,12 +97,19 @@ try {
 }
 
 try {
-  // Using the original route names as in your code
   followRoutes = require('./routes/followRoutes');
   console.log('Follow routes loaded successfully');
 } catch (error) {
   console.error('Error loading follow routes:', error.message);
   followRoutes = express.Router();
+}
+
+try {
+  contactsRoutes = require('./routes/contact');
+  console.log('Contacts routes loaded successfully');
+} catch (error) {
+  console.error('Error loading contacts routes:', error.message);
+  contactsRoutes = express.Router();
 }
 
 // Health check route
@@ -113,7 +123,8 @@ app.get('/api/health', (req, res) => {
       posts: '/api/posts',
       uploads: '/api/uploads',
       achievements: '/api/achievements',
-      follow: '/api/follow'
+      follow: '/api/follow',
+      contacts: '/api/contacts' // Added contacts route
     }
   });
 });
@@ -122,9 +133,10 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/posts', postRoutes);
-app.use('/api/uploads', uploadRoutes); // Add the upload routes
+app.use('/api/uploads', uploadRoutes);
 app.use('/api/achievements', achievementRoutes);
 app.use('/api/follow', followRoutes);
+app.use('/api/contacts', contactsRoutes);
 
 // Add 404 handler for undefined routes
 app.use((req, res, next) => {
@@ -136,9 +148,10 @@ app.use((req, res, next) => {
       '/api/auth/...',
       '/api/users/...',
       '/api/posts/...',
-      '/api/uploads/...', // Add uploads to available routes list
+      '/api/uploads/...',
       '/api/achievements/...',
-      '/api/follow/...'
+      '/api/follow/...',
+      '/api/contacts/...' // Added contacts route
     ]
   });
 });
@@ -146,17 +159,22 @@ app.use((req, res, next) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error handling request:', err);
-  
-  // Handle multer errors
+
+  // Handle Multer errors
   if (err.code === 'LIMIT_FILE_SIZE') {
     return res.status(400).json({
       message: 'File too large, maximum size is 5MB'
     });
   }
-  
+
+  // In production, hide detailed error messages
+  const errorMessage = process.env.NODE_ENV === 'production'
+    ? 'Internal server error'
+    : err.message || 'Something went wrong!';
+
   res.status(500).json({
     error: 'Server Error',
-    message: err.message || 'Something went wrong!'
+    message: errorMessage
   });
 });
 

@@ -1,5 +1,5 @@
 // controllers/followController.js
-const User = require('../models/User');
+const User = require('../models/user');
 const Follower = require('../models/Follower');
 
 // Follow a user

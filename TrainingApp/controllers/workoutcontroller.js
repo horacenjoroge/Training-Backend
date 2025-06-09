@@ -24,7 +24,7 @@ class WorkoutController {
       };
 
       // Validate workout data
-      this.validateWorkoutData(workoutData);
+      workoutController.validateWorkoutData(workoutData);
 
       // Create workout
       const workout = new Workout(workoutData);
@@ -38,7 +38,7 @@ class WorkoutController {
       }
 
       // Check for new achievements
-      const newAchievements = await this.checkAndCreateAchievements(userId, workout, user);
+      const newAchievements = await workoutController.checkAndCreateAchievements(userId, workout, user);
 
       res.status(201).json({
         status: 'success',
@@ -96,7 +96,7 @@ class WorkoutController {
       const total = await Workout.countDocuments(query);
 
       // Calculate summary stats for the filtered workouts
-      const summaryStats = await this.calculateSummaryStats(query);
+      const summaryStats = await workoutController.calculateSummaryStats(query);
 
       res.status(200).json({
         status: 'success',
@@ -243,7 +243,7 @@ class WorkoutController {
       // Update user stats (subtract this workout)
       const user = await User.findById(userId);
       if (user) {
-        await this.updateUserStatsAfterDeletion(user, workout);
+        await workoutController.updateUserStatsAfterDeletion(user, workout);
         await user.save();
       }
 
@@ -266,7 +266,7 @@ class WorkoutController {
       const userId = getUserId(req);
       const { period = 'month' } = req.query;
 
-      const dateFilter = this.getDateFilter(period);
+      const dateFilter = workoutController.getDateFilter(period);
       const query = { 
         userId: userId,
         ...(dateFilter && { startTime: dateFilter })
@@ -300,7 +300,7 @@ class WorkoutController {
       ]);
 
       // Get personal bests
-      const personalBests = await this.getPersonalBests(userId);
+      const personalBests = await workoutController.getPersonalBests(userId);
 
       // Get recent achievements
       const recentAchievements = await Achievement.find({ 
@@ -310,7 +310,7 @@ class WorkoutController {
       .limit(5);
 
       // Get workout trends (last 30 days)
-      const trends = await this.getWorkoutTrends(userId);
+      const trends = await workoutController.getWorkoutTrends(userId);
 
       res.status(200).json({
         status: 'success',
@@ -538,7 +538,7 @@ class WorkoutController {
     }
 
     // Distance achievements
-    const distance = this.getWorkoutDistance(workout);
+    const distance = workoutController.getWorkoutDistance(workout);
     if (distance >= 5000 && !earnedTypes.includes('distance_5k')) {
       newAchievements.push({
         ...templates.distance_5k,
@@ -678,60 +678,132 @@ class WorkoutController {
   }
 
   async getPersonalBests(userId) {
-    // Implementation for getting personal bests from workout data
-    const personalBests = {
-      running: {
-        longestDistance: 0,
-        bestPace: 0,
-        longestDuration: 0
-      },
-      cycling: {
-        longestDistance: 0,
-        bestSpeed: 0,
-        longestDuration: 0
-      },
-      swimming: {
-        mostLaps: 0,
-        bestSwolf: 0,
-        longestDuration: 0
-      },
-      gym: {
-        heaviestWeight: 0,
-        mostSets: 0,
-        longestDuration: 0
-      }
-    };
+    try {
+      // Get running personal bests
+      const runningBests = await Workout.aggregate([
+        { $match: { userId: userId, type: 'Running' } },
+        {
+          $group: {
+            _id: null,
+            longestDistance: { $max: '$running.distance' },
+            bestPace: { $min: '$running.pace.average' },
+            longestDuration: { $max: '$duration' },
+            fastestSpeed: { $max: '$running.speed.max' }
+          }
+        }
+      ]);
 
-    return personalBests;
+      // Get cycling personal bests
+      const cyclingBests = await Workout.aggregate([
+        { $match: { userId: userId, type: 'Cycling' } },
+        {
+          $group: {
+            _id: null,
+            longestDistance: { $max: '$cycling.distance' },
+            bestSpeed: { $max: '$cycling.speed.max' },
+            longestDuration: { $max: '$duration' },
+            avgSpeed: { $avg: '$cycling.speed.average' }
+          }
+        }
+      ]);
+
+      // Get swimming personal bests
+      const swimmingBests = await Workout.aggregate([
+        { $match: { userId: userId, type: 'Swimming' } },
+        {
+          $group: {
+            _id: null,
+            mostLaps: { $max: { $size: { $ifNull: ['$swimming.laps', []] } } },
+            bestSwolf: { $min: '$swimming.technique.averageSwolf' },
+            longestDuration: { $max: '$duration' },
+            longestDistance: { $max: '$swimming.distance' }
+          }
+        }
+      ]);
+
+      // Get gym personal bests
+      const gymBests = await Workout.aggregate([
+        { $match: { userId: userId, type: 'Gym' } },
+        {
+          $group: {
+            _id: null,
+            heaviestWeight: { $max: '$gym.stats.totalWeight' },
+            mostSets: { $max: '$gym.stats.totalSets' },
+            longestDuration: { $max: '$duration' },
+            mostReps: { $max: '$gym.stats.totalReps' }
+          }
+        }
+      ]);
+
+      return {
+        running: runningBests[0] || {
+          longestDistance: 0,
+          bestPace: 0,
+          longestDuration: 0,
+          fastestSpeed: 0
+        },
+        cycling: cyclingBests[0] || {
+          longestDistance: 0,
+          bestSpeed: 0,
+          longestDuration: 0,
+          avgSpeed: 0
+        },
+        swimming: swimmingBests[0] || {
+          mostLaps: 0,
+          bestSwolf: 0,
+          longestDuration: 0,
+          longestDistance: 0
+        },
+        gym: gymBests[0] || {
+          heaviestWeight: 0,
+          mostSets: 0,
+          longestDuration: 0,
+          mostReps: 0
+        }
+      };
+    } catch (error) {
+      console.error('Error getting personal bests:', error);
+      return {
+        running: { longestDistance: 0, bestPace: 0, longestDuration: 0, fastestSpeed: 0 },
+        cycling: { longestDistance: 0, bestSpeed: 0, longestDuration: 0, avgSpeed: 0 },
+        swimming: { mostLaps: 0, bestSwolf: 0, longestDuration: 0, longestDistance: 0 },
+        gym: { heaviestWeight: 0, mostSets: 0, longestDuration: 0, mostReps: 0 }
+      };
+    }
   }
 
   async getWorkoutTrends(userId) {
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    
-    const trends = await Workout.aggregate([
-      {
-        $match: {
-          userId: userId,
-          startTime: { $gte: thirtyDaysAgo }
-        }
-      },
-      {
-        $group: {
-          _id: {
-            $dateToString: {
-              format: '%Y-%m-%d',
-              date: '$startTime'
-            }
-          },
-          count: { $sum: 1 },
-          totalDuration: { $sum: '$duration' },
-          totalCalories: { $sum: '$calories' }
-        }
-      },
-      { $sort: { _id: 1 } }
-    ]);
+    try {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      
+      const trends = await Workout.aggregate([
+        {
+          $match: {
+            userId: userId,
+            startTime: { $gte: thirtyDaysAgo }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              $dateToString: {
+                format: '%Y-%m-%d',
+                date: '$startTime'
+              }
+            },
+            count: { $sum: 1 },
+            totalDuration: { $sum: '$duration' },
+            totalCalories: { $sum: '$calories' }
+          }
+        },
+        { $sort: { _id: 1 } }
+      ]);
 
-    return trends;
+      return trends;
+    } catch (error) {
+      console.error('Error getting workout trends:', error);
+      return [];
+    }
   }
 
   async updateUserStatsAfterDeletion(user, workout) {
@@ -741,9 +813,12 @@ class WorkoutController {
     user.stats.calories = Math.max(0, user.stats.calories - (workout.calories || 0));
     user.stats.totalDuration = Math.max(0, user.stats.totalDuration - (workout.duration || 0));
     
-    const distance = this.getWorkoutDistance(workout);
+    const distance = workoutController.getWorkoutDistance(workout);
     user.stats.totalDistance = Math.max(0, user.stats.totalDistance - distance);
   }
 }
 
-module.exports = new WorkoutController();
+// Create single instance
+const workoutController = new WorkoutController();
+
+module.exports = workoutController;

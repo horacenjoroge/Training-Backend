@@ -10,6 +10,7 @@ router.use(auth);
 // Workout CRUD routes
 router.post('/', workoutController.createWorkout);
 router.get('/', workoutController.getWorkouts);
+router.get('/debug', workoutController.debugWorkouts); // ADD THIS LINE - Debug endpoint
 router.get('/stats/summary', workoutController.getWorkoutStats);
 router.get('/public/feed', workoutController.getPublicWorkouts);
 router.get('/:id', workoutController.getWorkout);

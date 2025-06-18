@@ -46,6 +46,13 @@ dirs.forEach(dir => {
 // Set up static folders for serving uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
+ // Log env variables to debug Railway issues
+console.log('\n🔍 ENV DEBUG');
+console.log('MONGODB_URI:', process.env.MONGODB_URI);
+console.log('JWT_SECRET:', process.env.JWT_SECRET);
+console.log('NODE_ENV:', process.env.NODE_ENV);
+
+
 // Connect to MongoDB with detailed logging and options
 mongoose.connect(process.env.MONGODB_URI, {
   serverSelectionTimeoutMS: 5000, // Timeout after 5 seconds

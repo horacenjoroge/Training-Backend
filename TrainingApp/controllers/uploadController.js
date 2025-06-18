@@ -1,6 +1,6 @@
 // controllers/uploadController.js
 const path = require('path');
-const User = require('../models/User');
+const User = require('../models/user');
 const Post = require('../models/post');
 const { formatImageUrl, removeOldFile } = require('../utils/uploadService');
 
